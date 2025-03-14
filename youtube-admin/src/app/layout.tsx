@@ -1,0 +1,90 @@
+"use client";
+
+import Link from "next/link";
+import React, {useEffect} from "react";
+import {usePathname, useRouter} from "next/navigation";
+
+const menuItems = [
+    { name: "Keyword management", path: "/keyword" },
+    { name: "Channel management", path: "/channel" },
+    { name: "Fetch data", path: "/fetchData" },
+    { name: "Channel data", path: "/channelData" },
+    { name: "Channel statistic data", path: "/channelStatisticData" },
+    { name: "Video data", path: "/videoData" },
+    { name: "Video statistic data", path: "/videoStatisticData" },
+    { name: "Keyword videos", path: "/keywordsVideos" },
+
+];
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+    const router = useRouter();
+    const pathname = usePathname();
+
+    useEffect(() => {
+        if (pathname === "/") {
+            router.replace("/keyword");
+        }
+    }, [pathname, router]);
+    return (
+        <html lang="en">
+        <body style={styles.body}>
+        <div style={styles.container}>
+            {/* Sidebar */}
+            <aside style={styles.sidebar}>
+                <h2 style={styles.title}>Admin Panel</h2>
+                <nav>
+                    {menuItems.map((item) => (
+                        <Link key={item.path} href={item.path} style={styles.menuItem}>
+                            {item.name}
+                        </Link>
+                    ))}
+                </nav>
+            </aside>
+
+            {/* Content */}
+            <main style={styles.content}>{children}</main>
+        </div>
+        </body>
+        </html>
+    );
+}
+
+/** 样式对象 */
+const styles: { [key: string]: React.CSSProperties } = {
+    body: {
+        margin: 0,
+        fontFamily: "Arial, sans-serif",
+        backgroundColor: "#f3f4f6",
+    },
+    container: {
+        display: "flex",
+        height: "100vh",
+    },
+    sidebar: {
+        width: "250px",
+        backgroundColor: "#1a202c",
+        color: "#ffffff",
+        padding: "16px",
+    },
+    title: {
+        fontSize: "20px",
+        fontWeight: "bold",
+        marginBottom: "16px",
+    },
+    menuItem: {
+        display: "block",
+        padding: "10px 16px",
+        textDecoration: "none",
+        color: "white",
+        borderRadius: "4px",
+        transition: "background 0.2s",
+    },
+    menuItemHover: {
+        backgroundColor: "#2d3748",
+    },
+    content: {
+        flex: 1,
+        padding: "24px",
+        backgroundColor: "#f9fafb",
+    },
+};
