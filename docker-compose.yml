@@ -1,0 +1,69 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: my_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: youtube_data
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./sql/table.sql:/docker-entrypoint-initdb.d/table.sql
+    networks:
+      - pg_network
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: my_pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: adminpassword
+    ports:
+      - "8080:80"
+    depends_on:
+      - postgres
+    networks:
+      - pg_network
+
+  youtubedata:
+    build:
+      context: ./youtubedata
+      dockerfile: Dockerfile
+    container_name: youtubedata
+    restart: always
+    env_file:
+      - ./youtubedata/.env
+    ports:
+      - "8081:3000"
+    depends_on:
+      - postgres
+    networks:
+      - pg_network
+
+  youtubebackend:
+    build:
+      context: ./youtubebackend
+      dockerfile: Dockerfile
+    container_name: youtubebackend
+    restart: always
+    #    env_file:
+    #      - ./youtubebackend/.env
+    ports:
+      - "8082:3000"
+    depends_on:
+      - postgres
+      - youtubedata
+    networks:
+      - pg_network
+
+volumes:
+  pg_data:
+
+networks:
+  pg_network:
