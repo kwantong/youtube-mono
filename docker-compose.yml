@@ -33,7 +33,7 @@ services:
 
   youtubedata:
     build:
-      context: ./youtubedata
+      context: ./youtube-data
       dockerfile: Dockerfile
     container_name: youtubedata
     restart: always
@@ -48,7 +48,7 @@ services:
 
   youtubebackend:
     build:
-      context: ./youtubebackend
+      context: ./youtube-backend
       dockerfile: Dockerfile
     container_name: youtubebackend
     restart: always
