@@ -57,3 +57,62 @@ export async function searchChannelStatistics({
     throw new Error("Failed to fetch channel statistics");
   }
 }
+
+/**
+ * 根据 `channel_id` 获取频道详情和统计数据
+ * @param channel_id 频道 ID
+ */
+export async function getChannelDetailWithStatistics(channel_id: string) {
+  const client = await pool.connect();
+  try {
+    // 查询频道基本信息
+    const channelQuery = `
+      SELECT *
+      FROM yt_channel
+      WHERE channel_id = $1;
+    `;
+
+    const channelResult = await client.query(channelQuery, [channel_id]);
+
+    if (channelResult.rows.length === 0) {
+      return {
+        success: false,
+        error: "Channel not found",
+      };
+    }
+
+    const channelDetail = channelResult.rows[0];
+
+    // 查询该频道的统计数据（按 `snapshot_date` 排序）
+    const statisticsQuery = `
+      SELECT snapshot_date, subscriber_count, view_count, video_count
+      FROM yt_channel_statistics
+      WHERE channel_id = $1
+      ORDER BY snapshot_date ASC;
+    `;
+
+    const statisticsResult = await client.query(statisticsQuery, [channel_id]);
+
+    return {
+      success: true,
+      channel: {
+        channel_id: channelDetail.channel_id,
+        channel_name: channelDetail.channel_name,
+        channel_created_at: channelDetail.channel_created_at,
+        channel_description: channelDetail.channel_description,
+        channel_thumbnail_url: channelDetail.channel_thumbnail_url,
+        created_at: channelDetail.created_at,
+        updated_at: channelDetail.updated_at,
+      },
+      statistics: statisticsResult.rows,
+    };
+  } catch (error) {
+    console.error("Database error:", error);
+    return {
+      success: false,
+      error: "Database query failed",
+    };
+  } finally {
+    client.release();
+  }
+}

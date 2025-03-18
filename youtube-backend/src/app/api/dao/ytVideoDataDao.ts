@@ -64,3 +64,112 @@ export async function searchVideos({
     throw new Error("Failed to fetch video data");
   }
 }
+
+/**
+ * 根据 `keyword_id` 搜索关联的所有视频（分页）
+ * @param keyword_id 关键词 ID（UUID）
+ * @param page 当前页
+ * @param pageSize 每页条数
+ */
+export async function searchVideosByKeywordId({
+  keyword_id,
+  page = 1,
+  pageSize = 10,
+}: {
+  keyword_id: string;
+  page?: number;
+  pageSize?: number;
+}) {
+  const client = await pool.connect();
+  try {
+    const offset = (page - 1) * pageSize;
+
+    // 查询匹配的视频
+    const query = `
+      SELECT v.*
+      FROM yt_video v
+      JOIN keywords_videos kv ON v.video_id = kv.video_id
+      WHERE kv.keyword_id = $1
+      ORDER BY v.video_published_at DESC
+      LIMIT $2 OFFSET $3;
+    `;
+
+    // 计算符合条件的总记录数
+    const countQuery = `
+      SELECT COUNT(*)
+      FROM yt_video v
+      JOIN keywords_videos kv ON v.video_id = kv.video_id
+      WHERE kv.keyword_id = $1;
+    `;
+
+    // 获取总条数
+    const countResult = await client.query(countQuery, [keyword_id]);
+    const totalCount = parseInt(countResult.rows[0].count, 10);
+    const totalPages = Math.ceil(totalCount / pageSize);
+
+    // 查询数据
+    const result = await client.query(query, [keyword_id, pageSize, offset]);
+
+    return {
+      data: result.rows,
+      totalCount,
+      totalPages,
+    };
+  } catch (error) {
+    console.error("Database error:", error);
+    return {
+      data: [],
+      totalCount: 0,
+      totalPages: 0,
+    };
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * 获取 `channel_id` 关联的所有视频（按 `video_published_at` 倒序）
+ * @param channel_id 频道 ID
+ */
+export async function getVideosByChannelId(
+  channel_id: string,
+  page: number = 1,
+  pageSize: number = 10
+) {
+  const client = await pool.connect();
+  try {
+    const offset = (page - 1) * pageSize;
+
+    const videosQuery = `
+      SELECT video_id, video_title, video_published_at, video_thumbnail_url, video_duration
+      FROM yt_video
+      WHERE channel_id = $1
+      ORDER BY video_published_at DESC
+      LIMIT $2 OFFSET $3;
+    `;
+    const result = await client.query(videosQuery, [
+      channel_id,
+      pageSize,
+      offset,
+    ]);
+
+    const countQuery = `
+      SELECT COUNT(*) FROM yt_video WHERE channel_id = $1;
+    `;
+    const countResult = await client.query(countQuery, [channel_id]);
+    const totalCount = parseInt(countResult.rows[0].count, 10);
+    const totalPages = Math.ceil(totalCount / pageSize);
+
+    return {
+      videos: result.rows,
+      totalCount,
+      totalPages,
+      currentPage: page,
+    };
+  } catch (error) {
+    console.error("Database error:", error);
+    return { videos: [], totalCount: 0, totalPages: 0, currentPage: page };
+  } finally {
+    client.release();
+  }
+}

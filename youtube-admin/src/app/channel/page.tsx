@@ -15,25 +15,43 @@ export default function Page() {
   >([]);
   const [newChannelId, setNewChannelId] = useState("");
   const [newChannelName, setNewChannelName] = useState("");
-
-  useEffect(() => {
-    (async () => {
-      await fetchChannelIds();
-    })();
-  }, []);
+  const [searchChannelId, setSearchChannelId] = useState("");
+  const [searchChannelName, setSearchChannelName] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(false);
 
   const fetchChannelIds = useCallback(async () => {
+    setLoading(true);
     try {
-      const res = await fetch(API_URL);
+      const queryParams = new URLSearchParams({
+        page: String(page),
+        pageSize: String(pageSize),
+        ...(searchChannelId && { channel_id: searchChannelId }),
+        ...(searchChannelName && { channel_name: searchChannelName }),
+      });
+
+      const res = await fetch(`${API_URL}?${queryParams}`);
       const data = await res.json();
-      setChannelIdDataset(data);
+
+      if (data.success) {
+        setChannelIdDataset(data.data);
+        setTotalPages(data.totalPages);
+      }
     } catch (error) {
       console.error("Failed to fetch ChannelIds", error);
+    } finally {
+      setLoading(false);
     }
-  }, []);
+  }, [page, pageSize, searchChannelId, searchChannelName]);
+
+  useEffect(() => {
+    fetchChannelIds();
+  }, [fetchChannelIds, page]); // 当页码变化时，重新获取数据
 
   const addChannelId = useCallback(async () => {
-    if (!newChannelId.trim()) return alert("please insert ChannelId");
+    if (!newChannelId.trim()) return alert("Please insert ChannelId");
     try {
       const res = await fetch(API_URL, {
         method: "POST",
@@ -44,46 +62,91 @@ export default function Page() {
         }),
       });
       if (res.ok) {
-        await fetchChannelIds();
+        setNewChannelId("");
+        setNewChannelName("");
+        fetchChannelIds();
       } else {
-        alert("failed");
+        alert("Failed to add ChannelId");
       }
     } catch (error) {
       console.error("Failed to add ChannelId", error);
     }
-  }, [newChannelId, newChannelName]);
+  }, [newChannelId, newChannelName, fetchChannelIds]);
 
-  const toggleIsDelete = useCallback(async (id: string, isDelete: number) => {
-    try {
-      const res = await fetch(API_URL, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, isDelete: isDelete === 1 ? 2 : 1 }), // 1->2, 2->1
-      });
-      if (res.ok) {
-        fetchChannelIds();
-      } else {
-        alert("failed");
+  const toggleIsDelete = useCallback(
+    async (id: string, isDelete: number) => {
+      try {
+        const res = await fetch(API_URL, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, isDelete: isDelete === 1 ? 2 : 1 }), // 1->2, 2->1
+        });
+        if (res.ok) {
+          fetchChannelIds();
+        } else {
+          alert("Failed to update channelId status");
+        }
+      } catch (error) {
+        console.error("Failed to update channelId status", error);
       }
-    } catch (error) {
-      console.error("Failed to update channelId status", error);
-    }
-  }, []);
+    },
+    [fetchChannelIds]
+  );
+
+  // 上一页
+  const handlePrevPage = () => {
+    if (page > 1) setPage(page - 1);
+  };
+
+  // 下一页
+  const handleNextPage = () => {
+    if (page < totalPages) setPage(page + 1);
+  };
+
+  // 触发搜索
+  const handleSearch = () => {
+    setPage(1);
+    fetchChannelIds();
+  };
 
   return (
     <div style={styles.container}>
-      <h1 style={styles.title}>channelId 管理</h1>
+      <h1 style={styles.title}>Channel ID Management</h1>
 
+      {/* 搜索区域 */}
+      <div style={styles.searchSection}>
+        <input
+          type="text"
+          placeholder="Search by Channel ID"
+          value={searchChannelId}
+          onChange={(e) => setSearchChannelId(e.target.value)}
+          style={styles.input}
+        />
+        <input
+          type="text"
+          placeholder="Search by Channel Name"
+          value={searchChannelName}
+          onChange={(e) => setSearchChannelName(e.target.value)}
+          style={styles.input}
+        />
+        <button onClick={handleSearch} style={styles.searchButton}>
+          Search
+        </button>
+      </div>
+
+      {/* 添加 Channel ID */}
       <div style={styles.addSection}>
         <input
           type="text"
-          placeholder="channelId"
+          placeholder="Channel ID"
+          value={newChannelId}
           onChange={(e) => setNewChannelId(e.target.value)}
           style={styles.input}
         />
         <input
           type="text"
-          placeholder="channelName(Optional)"
+          placeholder="Channel Name (Optional)"
+          value={newChannelName}
           onChange={(e) => setNewChannelName(e.target.value)}
           style={styles.input}
         />
@@ -92,72 +155,106 @@ export default function Page() {
         </button>
       </div>
 
-      <table style={styles.table}>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>ChannelId</th>
-            <th>ChannelName</th>
-            <th>Status</th>
-            <th>Delete</th>
-          </tr>
-        </thead>
-        <tbody>
-          {channelIdDataset.map((item) => (
-            <tr key={item.id}>
-              <td>{item.id}</td>
-              <td>{item.channel_id}</td>
-              <td>{item.channel_name}</td>
-              <td>{item.is_deleted === 1 ? "deleted" : "running"}</td>
-              <td>
-                <button
-                  onClick={() => toggleIsDelete(item.id, item.is_deleted)}
-                  style={styles.toggleButton}
-                >
-                  {item.is_deleted === 1 ? "restore" : "delete"}
-                </button>
-              </td>
+      {/* 关键词列表 */}
+      {loading ? (
+        <p>Loading...</p>
+      ) : (
+        <table style={styles.table}>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Channel ID</th>
+              <th>Channel Name</th>
+              <th>Status</th>
+              <th>Delete</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {channelIdDataset.length > 0 ? (
+              channelIdDataset.map((item) => (
+                <tr key={item.id}>
+                  <td>{item.id}</td>
+                  <td>{item.channel_id}</td>
+                  <td>{item.channel_name}</td>
+                  <td>{item.is_deleted === 1 ? "Deleted" : "Running"}</td>
+                  <td>
+                    <button
+                      onClick={() => toggleIsDelete(item.id, item.is_deleted)}
+                      style={styles.toggleButton}
+                    >
+                      {item.is_deleted === 1 ? "Restore" : "Delete"}
+                    </button>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={5} style={styles.noData}>
+                  No data available
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      )}
+
+      {/* 分页控件 */}
+      <div style={styles.pagination}>
+        <button
+          onClick={handlePrevPage}
+          disabled={page === 1}
+          style={{
+            ...styles.pageButton,
+            ...(page === 1 ? styles.disabledButton : {}),
+          }}
+        >
+          Previous
+        </button>
+        <span style={styles.pageInfo}>
+          Page {page} of {totalPages}
+        </span>
+        <button
+          onClick={handleNextPage}
+          disabled={page >= totalPages}
+          style={{
+            ...styles.pageButton,
+            ...(page >= totalPages ? styles.disabledButton : {}),
+          }}
+        >
+          Next
+        </button>
+      </div>
     </div>
   );
 }
 
-const styles: { [key: string]: React.CSSProperties } = {
-  container: {
-    padding: "20px",
-    fontFamily: "Arial, sans-serif",
-  },
-  title: {
-    fontSize: "24px",
-    marginBottom: "20px",
-  },
-  addSection: {
-    display: "flex",
-    gap: "10px",
-    marginBottom: "20px",
-  },
+/** Styles */
+const styles = {
+  container: { padding: "20px", fontFamily: "Arial, sans-serif" },
+  title: { fontSize: "24px", marginBottom: "20px" },
+  searchSection: { display: "flex", gap: "10px", marginBottom: "20px" },
   input: {
     width: "300px",
     padding: "8px",
     border: "1px solid #ccc",
     borderRadius: "4px",
   },
-  addButton: {
+  searchButton: {
     padding: "8px 16px",
-    backgroundColor: "#4CAF50",
+    backgroundColor: "#007bff",
     color: "white",
     border: "none",
     borderRadius: "4px",
     cursor: "pointer",
   },
-  table: {
-    width: "100%",
-    borderCollapse: "collapse",
+  noData: { textAlign: "center", padding: "10px" },
+  pagination: {
+    display: "flex",
+    justifyContent: "center",
+    gap: "10px",
+    marginTop: "20px",
   },
-  toggleButton: {
+  pageButton: {
     padding: "6px 12px",
     backgroundColor: "#007bff",
     color: "white",
@@ -165,4 +262,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     borderRadius: "4px",
     cursor: "pointer",
   },
+  disabledButton: { backgroundColor: "#ccc", cursor: "not-allowed" },
+  pageInfo: { fontSize: "16px", fontWeight: "bold" },
 };

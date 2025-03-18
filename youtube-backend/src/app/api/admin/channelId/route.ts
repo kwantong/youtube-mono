@@ -6,8 +6,26 @@ import {
 } from "../../dao/managementDao";
 
 export async function GET(request: NextRequest) {
-  const res = await getAllChannelIds();
-  return NextResponse.json(res);
+  const { searchParams } = new URL(request.url);
+  const channel_id = searchParams.get("channel_id") || "";
+  const channel_name = searchParams.get("channel_name") || "";
+  const page = parseInt(searchParams.get("page") || "1", 10);
+  const pageSize = parseInt(searchParams.get("pageSize") || "10", 10);
+
+  const { data, totalCount } = await getAllChannelIds({
+    channel_id,
+    channel_name,
+    page,
+    pageSize,
+  });
+  const totalPages = Math.ceil(totalCount / pageSize);
+
+  return NextResponse.json({
+    success: true,
+    data: data,
+    totalCount,
+    totalPages,
+  });
 }
 
 export async function POST(request: NextRequest) {

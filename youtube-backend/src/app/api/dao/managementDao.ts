@@ -4,16 +4,51 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
-export async function getAllKeywords() {
+export async function getAllKeywords({
+  keyword = "",
+  page = 1,
+  pageSize = 10,
+}: {
+  keyword?: string;
+  page?: number;
+  pageSize?: number;
+}) {
   const client = await pool.connect();
   try {
-    const result = await client.query(
-      "SELECT * FROM keyword_setting ORDER BY created_at desc;"
+    const offset = (page - 1) * pageSize;
+    let query = `SELECT * FROM keyword_setting WHERE 1=1`;
+    let countQuery = `SELECT COUNT(*) FROM keyword_setting WHERE 1=1`;
+    const values: any[] = [];
+
+    if (keyword) {
+      query += ` AND keyword ILIKE $${values.length + 1}`;
+      countQuery += ` AND keyword ILIKE $${values.length + 1}`;
+      values.push(`%${keyword}%`);
+    }
+
+    query += ` ORDER BY created_at DESC LIMIT $${values.length + 1} OFFSET $${
+      values.length + 2
+    }`;
+    values.push(pageSize, offset);
+
+    const countResult = await client.query(
+      countQuery,
+      values.slice(0, values.length - 2)
     );
-    return result.rows;
+    const totalCount = parseInt(countResult.rows[0].count, 10);
+    const totalPages = Math.ceil(totalCount / pageSize);
+
+    const result = await client.query(query, values);
+
+    return {
+      data: result.rows,
+      totalCount,
+      totalPages,
+      currentPage: page,
+    };
   } catch (error) {
     console.error("Database error:", error);
-    return [];
+    return { data: [], totalCount: 0, totalPages: 0, currentPage: page };
   } finally {
     client.release();
   }
@@ -51,16 +86,59 @@ export async function updateKeywordIsDeleted(id: string, isDeleted: number) {
   }
 }
 
-export async function getAllChannelIds() {
+export async function getAllChannelIds({
+  channel_id = "",
+  channel_name = "",
+  page = 1,
+  pageSize = 10,
+}: {
+  channel_id?: string;
+  channel_name?: string;
+  page?: number;
+  pageSize?: number;
+}) {
   const client = await pool.connect();
   try {
-    const result = await client.query(
-      "SELECT * FROM channel_setting ORDER BY created_at desc;"
+    const offset = (page - 1) * pageSize;
+    let query = `SELECT * FROM channel_setting WHERE 1=1`;
+    let countQuery = `SELECT COUNT(*) FROM channel_setting WHERE 1=1`;
+    const values: any[] = [];
+
+    if (channel_id) {
+      query += ` AND channel_id = $${values.length + 1}`;
+      countQuery += ` AND channel_id = $${values.length + 1}`;
+      values.push(channel_id);
+    }
+
+    if (channel_name) {
+      query += ` AND channel_name ILIKE $${values.length + 1}`;
+      countQuery += ` AND channel_name ILIKE $${values.length + 1}`;
+      values.push(`%${channel_name}%`);
+    }
+
+    query += ` ORDER BY created_at DESC LIMIT $${values.length + 1} OFFSET $${
+      values.length + 2
+    }`;
+    values.push(pageSize, offset);
+
+    const countResult = await client.query(
+      countQuery,
+      values.slice(0, values.length - 2)
     );
-    return result.rows;
+    const totalCount = parseInt(countResult.rows[0].count, 10);
+    const totalPages = Math.ceil(totalCount / pageSize);
+
+    const result = await client.query(query, values);
+
+    return {
+      data: result.rows,
+      totalCount,
+      totalPages,
+      currentPage: page,
+    };
   } catch (error) {
     console.error("Database error:", error);
-    return [];
+    return { data: [], totalCount: 0, totalPages: 0, currentPage: page };
   } finally {
     client.release();
   }

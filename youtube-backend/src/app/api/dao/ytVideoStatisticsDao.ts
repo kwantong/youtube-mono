@@ -64,3 +64,63 @@ export async function searchVideoStatistics({
     throw new Error("Failed to fetch video statistics");
   }
 }
+
+/**
+ * 获取 `video_id` 的详细信息，并返回该视频的统计数据（每天的数据）
+ * @param video_id 视频 ID
+ */
+export async function getVideoDetailWithStatistics(video_id: string) {
+  const client = await pool.connect();
+  try {
+    // 查询视频详细信息
+    const videoQuery = `
+      SELECT *
+      FROM yt_video
+      WHERE video_id = $1;
+    `;
+
+    const videoResult = await client.query(videoQuery, [video_id]);
+    if (videoResult.rows.length === 0) {
+      return {
+        success: false,
+        error: "Video not found",
+      };
+    }
+
+    const videoDetail = videoResult.rows[0];
+
+    // 查询该视频的统计数据（按 `snapshot_date` 排序）
+    const statisticsQuery = `
+      SELECT snapshot_date, total_comments, total_views, total_likes, total_favorites
+      FROM yt_video_statistics
+      WHERE video_id = $1
+      ORDER BY snapshot_date ASC;
+    `;
+
+    const statisticsResult = await client.query(statisticsQuery, [video_id]);
+
+    return {
+      success: true,
+      video: {
+        video_id: videoDetail.video_id,
+        video_title: videoDetail.video_title,
+        video_published_at: videoDetail.video_published_at,
+        video_thumbnail_url: videoDetail.video_thumbnail_url,
+        video_duration: videoDetail.video_duration,
+        video_category_id: videoDetail.video_category_id,
+        channel_id: videoDetail.channel_id,
+        created_at: videoDetail.created_at,
+        updated_at: videoDetail.updated_at,
+      },
+      statistics: statisticsResult.rows,
+    };
+  } catch (error) {
+    console.error("Database error:", error);
+    return {
+      success: false,
+      error: "Database query failed",
+    };
+  } finally {
+    client.release();
+  }
+}
