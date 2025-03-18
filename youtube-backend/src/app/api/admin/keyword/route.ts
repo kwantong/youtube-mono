@@ -3,7 +3,7 @@ import {
   getAllKeywords,
   insertKeyword,
   updateKeywordIsDeleted,
-} from "../../dao/dao";
+} from "../../dao/managementDao";
 
 export async function GET(request: NextRequest) {
   const res = await getAllKeywords();

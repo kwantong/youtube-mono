@@ -46,7 +46,8 @@ export async function insertVideo(videos: any[]) {
     const queryText = `
       INSERT INTO yt_video (channel_id, video_id, video_title, video_published_at, video_thumbnail_url, video_duration, video_category_id)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
-      ON CONFLICT (video_id) DO NOTHING;
+      ON CONFLICT (video_id)
+      DO UPDATE SET video_title = EXCLUDED.video_title, video_thumbnail_url = EXCLUDED.video_thumbnail_url, video_duration = EXCLUDED.video_duration, video_category_id = EXCLUDED.video_category_id;
     `;
 
     for (const video of videos) {
@@ -74,7 +75,8 @@ export async function insertVideoStatistics(videos: any[]) {
     const queryText = `
       INSERT INTO yt_video_statistics (channel_id, video_id, total_comments, total_views, total_likes, total_favorites)
       VALUES ($1, $2, $3, $4, $5, $6)
-      ON CONFLICT (video_id, snapshot_date) DO NOTHING;
+      ON CONFLICT (video_id, snapshot_date)
+      DO UPDATE SET total_comments = EXCLUDED.total_comments, total_views = EXCLUDED.total_views, total_likes = EXCLUDED.total_likes, total_favorites = EXCLUDED.total_favorites;
     `;
 
     for (const video of videos) {
@@ -101,7 +103,8 @@ export async function insertChannel(channels: any[]) {
     const queryText = `
       INSERT INTO yt_channel (channel_id, channel_name, channel_created_at, channel_description, channel_thumbnail_url)
       VALUES ($1, $2, $3, $4, $5)
-      ON CONFLICT (channel_id) DO NOTHING;
+      ON CONFLICT (channel_id)
+      DO UPDATE SET channel_name = EXCLUDED.channel_name, channel_description = EXCLUDED.channel_description, channel_thumbnail_url = EXCLUDED.channel_thumbnail_url;
     `;
 
     for (const channel of channels) {
@@ -127,7 +130,8 @@ export async function insertChannelStatistics(channels: any[]) {
     const queryText = `
       INSERT INTO yt_channel_statistics (channel_id, subscriber_count, view_count, video_count)
       VALUES ($1, $2, $3, $4)
-      ON CONFLICT (channel_id, snapshot_date) DO NOTHING;
+      ON CONFLICT (channel_id, snapshot_date)
+      DO UPDATE SET subscriber_count = EXCLUDED.subscriber_count, view_count = EXCLUDED.view_count, video_count = EXCLUDED.video_count;
     `;
 
     for (const channel of channels) {

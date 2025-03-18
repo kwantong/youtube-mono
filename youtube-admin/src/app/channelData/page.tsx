@@ -1,17 +1,19 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { PAGE_ITEM_COUNT } from "../common/const";
 
-const API_URL = "http://localhost:3002/api/admin/channelData"; // Backend API URL
+const API_URL = `${process.env.NEXT_PUBLIC_ADMIN_API_BASE_URL}/admin/channelData`;
 
 export default function ChannelPage() {
   const [channels, setChannels] = useState([]);
   const [channelId, setChannelId] = useState("");
   const [channelName, setChannelName] = useState("");
   const [page, setPage] = useState(1);
-  const [pageSize] = useState(5); // 5 items per page
+  const [pageSize] = useState(PAGE_ITEM_COUNT);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(true); // 是否有下一页
 
   // Fetch data
   const fetchChannels = async () => {
@@ -29,10 +31,12 @@ export default function ChannelPage() {
 
       if (data.success) {
         setChannels(data.data);
-        setHasMore(data.data.length === pageSize);
+        setTotalCount(data.totalCount);
+        setTotalPages(data.totalPages);
       } else {
         setChannels([]);
-        setHasMore(false);
+        setTotalCount(0);
+        setTotalPages(1);
       }
     } catch (error) {
       console.error("Failed to fetch channels", error);
@@ -59,7 +63,7 @@ export default function ChannelPage() {
 
   // Next page
   const handleNextPage = () => {
-    if (hasMore) setPage(page + 1);
+    if (page < totalPages) setPage(page + 1);
   };
 
   return (
@@ -145,13 +149,15 @@ export default function ChannelPage() {
         >
           Previous Page
         </button>
-        <span style={styles.pageInfo}>Current Page: {page}</span>
+        <span style={styles.pageInfo}>
+          Page {page} of {totalPages} | Total Records: {totalCount}
+        </span>
         <button
           onClick={handleNextPage}
-          disabled={!hasMore}
+          disabled={page >= totalPages}
           style={{
             ...styles.pageButton,
-            ...(!hasMore ? styles.disabledButton : {}),
+            ...(page >= totalPages ? styles.disabledButton : {}),
           }}
         >
           Next Page

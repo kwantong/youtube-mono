@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-const API_URL = "http://localhost:3002/api/admin/channelId";
+const API_URL = `${process.env.NEXT_PUBLIC_ADMIN_API_BASE_URL}/admin/channelId`;
 
 export default function Page() {
   const [channelIdDataset, setChannelIdDataset] = useState<

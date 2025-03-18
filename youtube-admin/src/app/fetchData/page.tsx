@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 
-const API_URL = "http://localhost:8081/api/search";
+const API_URL = `${process.env.NEXT_PUBLIC_DATA_API_BASE_URL}/search`;
 
 export default function Page() {
   const [isFetching, setIsFetching] = useState(false);

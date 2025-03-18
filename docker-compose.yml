@@ -37,8 +37,8 @@ services:
       dockerfile: Dockerfile
     container_name: youtubedata
     restart: always
-    env_file:
-      - ./youtubedata/.env
+    #    env_file:
+    #      - ./youtube-data/.env
     ports:
       - "8081:3000"
     depends_on:
@@ -52,13 +52,38 @@ services:
       dockerfile: Dockerfile
     container_name: youtubebackend
     restart: always
-    #    env_file:
-    #      - ./youtubebackend/.env
     ports:
       - "8082:3000"
     depends_on:
       - postgres
       - youtubedata
+    networks:
+      - pg_network
+
+  youtubeadmin:
+    build:
+      context: ./youtube-admin
+      dockerfile: Dockerfile
+    container_name: youtubeadmin
+    restart: always
+    ports:
+      - "8083:3000"
+    depends_on:
+      - youtubebackend
+      - youtubedata
+    networks:
+      - pg_network
+
+  youtubeuser:
+    build:
+      context: ./youtube-user
+      dockerfile: Dockerfile
+    container_name: youtubeuser
+    restart: always
+    ports:
+      - "8084:3000"
+    depends_on:
+      - youtubebackend
     networks:
       - pg_network
 

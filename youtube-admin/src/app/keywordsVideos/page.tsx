@@ -1,15 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { PAGE_ITEM_COUNT } from "../common/const";
 
-const API_URL = "http://localhost:3002/api/admin/keywordsVideos"; // Backend API URL
+const API_URL = `${process.env.NEXT_PUBLIC_ADMIN_API_BASE_URL}/admin/keywordsVideos`;
 
 export default function KeywordsVideosPage() {
   const [keywordVideos, setKeywordVideos] = useState([]);
   const [keywordId, setKeywordId] = useState("");
   const [videoId, setVideoId] = useState("");
   const [page, setPage] = useState(1);
-  const [pageSize] = useState(5);
+  const [pageSize] = useState(PAGE_ITEM_COUNT);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);

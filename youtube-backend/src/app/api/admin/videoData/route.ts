@@ -11,14 +11,21 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get("page") || "1", 10);
     const pageSize = parseInt(searchParams.get("pageSize") || "10", 10);
 
-    const data = await searchVideos({
+    const { rows, totalCount } = await searchVideos({
       channel_id,
       video_id,
       video_published_at,
       page,
       pageSize,
     });
-    return NextResponse.json({ success: true, data });
+    const totalPages = Math.ceil(totalCount / pageSize);
+
+    return NextResponse.json({
+      success: true,
+      data: rows,
+      totalCount,
+      totalPages,
+    });
   } catch (error) {
     return NextResponse.json(
       { success: false, error: String(error) },

@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { PAGE_ITEM_COUNT } from "../common/const";
 
-const API_URL = "http://localhost:3002/api/admin/videoData"; // Backend API URL
+const API_URL = `${process.env.NEXT_PUBLIC_ADMIN_API_BASE_URL}/admin/videoData`;
 
 export default function VideoDataPage() {
   const [videos, setVideos] = useState([]);
@@ -10,9 +11,10 @@ export default function VideoDataPage() {
   const [videoId, setVideoId] = useState("");
   const [videoPublishedAt, setVideoPublishedAt] = useState("");
   const [page, setPage] = useState(1);
-  const [pageSize] = useState(5);
+  const [pageSize] = useState(PAGE_ITEM_COUNT);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
 
   // Fetch data
   const fetchVideos = async () => {
@@ -31,10 +33,12 @@ export default function VideoDataPage() {
 
       if (data.success) {
         setVideos(data.data);
-        setHasMore(data.data.length === pageSize);
+        setTotalCount(data.totalCount);
+        setTotalPages(data.totalPages);
       } else {
         setVideos([]);
-        setHasMore(false);
+        setTotalCount(0);
+        setTotalPages(1);
       }
     } catch (error) {
       console.error("Failed to fetch videos", error);
@@ -61,7 +65,7 @@ export default function VideoDataPage() {
 
   // Next page
   const handleNextPage = () => {
-    if (hasMore) setPage(page + 1);
+    if (page < totalPages) setPage(page + 1);
   };
 
   return (
@@ -155,13 +159,15 @@ export default function VideoDataPage() {
         >
           Previous Page
         </button>
-        <span style={styles.pageInfo}>Current Page: {page}</span>
+        <span style={styles.pageInfo}>
+          Page {page} of {totalPages} | Total Records: {totalCount}
+        </span>
         <button
           onClick={handleNextPage}
-          disabled={!hasMore}
+          disabled={page >= totalPages}
           style={{
             ...styles.pageButton,
-            ...(!hasMore ? styles.disabledButton : {}),
+            ...(page >= totalPages ? styles.disabledButton : {}),
           }}
         >
           Next Page

@@ -25,16 +25,22 @@ export async function searchChannelStatistics({
   try {
     const offset = (page - 1) * pageSize;
     let query = `SELECT * FROM yt_channel_statistics WHERE 1=1`;
+    let countQuery = `SELECT COUNT(*) FROM yt_channel_statistics WHERE 1=1`;
     const params: any[] = [];
+    const countParams: any[] = [];
 
     if (channel_id) {
       query += ` AND channel_id = $${params.length + 1}`;
+      countQuery += ` AND channel_id = $${countParams.length + 1}`;
       params.push(channel_id);
+      countParams.push(channel_id);
     }
 
     if (snapshot_date) {
       query += ` AND snapshot_date = $${params.length + 1}`;
+      countQuery += ` AND snapshot_date = $${countParams.length + 1}`;
       params.push(snapshot_date);
+      countParams.push(snapshot_date);
     }
 
     query += ` ORDER BY snapshot_date DESC LIMIT $${
@@ -43,7 +49,9 @@ export async function searchChannelStatistics({
     params.push(pageSize, offset);
 
     const { rows } = await pool.query(query, params);
-    return rows;
+    const countResult = await pool.query(countQuery, countParams);
+    const totalCount = parseInt(countResult.rows[0].count, 10);
+    return { rows, totalCount };
   } catch (error) {
     console.error("Database query error:", error);
     throw new Error("Failed to fetch channel statistics");
