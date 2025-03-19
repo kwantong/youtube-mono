@@ -25,7 +25,7 @@ export async function fetchDataByChannel() {
 
   // TODO MEMO: cost= 30 (15 channels)
   const totalCostForChannels = channelChunks.reduce(
-    (sum, chunk) => sum + 2 * chunk.length,
+    (sum, chunk) => sum + chunk.length,
     0
   );
   console.log(`QUOTA: ${totalCostForChannels} QUOTA will be used`);
@@ -98,7 +98,7 @@ export async function fetchDataByChannel() {
           .join(",");
 
         // TODO MEMO: cost= 150 (3*50)
-        const totalCostForVideos = 3 * searchItems.length;
+        const totalCostForVideos = searchItems.length;
 
         console.log(`QUOTA: ${totalCostForVideos} QUOTA will be used`);
         // [DB]
@@ -158,7 +158,7 @@ export async function fetchDataByKeyword() {
         await insertKeywordsVideos(keywordsVideos);
 
         // TODO MEMO: cost= 150 (3*50)
-        const totalCostForVideos = 3 * searchItems.length;
+        const totalCostForVideos = searchItems.length;
 
         console.log(`QUOTA: ${totalCostForVideos} QUOTA will be used`);
         // [DB]

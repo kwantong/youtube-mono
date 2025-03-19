@@ -40,7 +40,7 @@ export default function RootLayout({
             <h2 style={styles.title}>Admin Panel</h2>
             <nav>
               {menuItems.map((item) => {
-                const isActive = pathname.startsWith(item.path);
+                const isActive = (pathname === item.path);
                 return (
                   <Link
                     key={item.path}
