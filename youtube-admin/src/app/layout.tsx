@@ -7,6 +7,8 @@ import { usePathname, useRouter } from "next/navigation";
 const menuItems = [
   { name: "Keyword management", path: "/keyword" },
   { name: "Channel management", path: "/channel" },
+  { name: "API Key management", path: "/googleAPIKey" },
+  { name: "API Key usage", path: "/googleAPIUsage" },
   { name: "Fetch data", path: "/fetchData" },
   { name: "Channel data", path: "/channelData" },
   { name: "Channel statistic data", path: "/channelStatisticData" },
