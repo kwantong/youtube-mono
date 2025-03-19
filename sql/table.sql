@@ -26,12 +26,12 @@ CREATE TRIGGER trigger_update_updated_at
 
 CREATE TABLE channel_setting
 (
-    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),     -- 自动生成 UUID
-    channel_id TEXT     NOT NULL UNIQUE,                       -- string 类型
+    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),     -- 自动生成 UUID
+    channel_id   TEXT     NOT NULL UNIQUE,                       -- string 类型
     channel_name TEXT,                                           -- string 类型
-    is_deleted SMALLINT NOT NULL CHECK (is_deleted IN (1, 2)), -- 1: yes, 2: no
-    created_at TIMESTAMP        DEFAULT CURRENT_TIMESTAMP,     -- 插入时自动生成时间
-    updated_at TIMESTAMP        DEFAULT CURRENT_TIMESTAMP      -- 默认值，但需要触发器自动更新
+    is_deleted   SMALLINT NOT NULL CHECK (is_deleted IN (1, 2)), -- 1: yes, 2: no
+    created_at   TIMESTAMP        DEFAULT CURRENT_TIMESTAMP,     -- 插入时自动生成时间
+    updated_at   TIMESTAMP        DEFAULT CURRENT_TIMESTAMP      -- 默认值，但需要触发器自动更新
 );
 
 CREATE TRIGGER trigger_update_updated_at_channel_setting
@@ -135,5 +135,40 @@ CREATE TABLE keywords_videos
 CREATE TRIGGER trigger_update_updated_at_keywords_videos
     BEFORE UPDATE
     ON keywords_videos
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TABLE google_api_keys
+(
+    id         UUID PRIMARY KEY     DEFAULT gen_random_uuid(), -- 自动生成 UUID
+    api_key    TEXT UNIQUE NOT NULL,
+    is_active  BOOLEAN     NOT NULL DEFAULT TRUE,              -- Only for manual control (e.g., if API key is banned)
+    created_at TIMESTAMP            DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP            DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TRIGGER trigger_update_updated_at_google_api_keys
+    BEFORE UPDATE
+    ON google_api_keys
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+
+CREATE TABLE google_api_usage
+(
+    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(), -- 自动生成 UUID
+    google_api_key_id UUID NOT NULL,                              -- Link to api_keys table
+    usage_date        DATE NOT NULL    DEFAULT CURRENT_DATE,      -- One record per day
+    quota_limit       INT  NOT NULL    DEFAULT 10000,             -- Daily quota limit
+    quota_used        INT  NOT NULL    DEFAULT 0,                 -- Track used quota
+    last_used_at      TIMESTAMP        DEFAULT NOW(),
+    created_at        TIMESTAMP        DEFAULT CURRENT_TIMESTAMP,
+    updated_at        TIMESTAMP        DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (google_api_key_id, usage_date)                        -- Ensure one record per day
+);
+
+CREATE TRIGGER trigger_update_updated_at_google_api_usage
+    BEFORE UPDATE
+    ON google_api_usage
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();

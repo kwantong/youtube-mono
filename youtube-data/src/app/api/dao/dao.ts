@@ -172,3 +172,103 @@ export async function insertKeywordsVideos(keywordsVideos: any[]) {
     client.release();
   }
 }
+
+export async function getAvailableApiKey(requiredQuota: number) {
+  try {
+    // 先尝试获取当天已有的可用 API Key
+    let apiUsage = await getTodayApiKey(requiredQuota);
+
+    // 如果当天没有可用的 API Key，则获取新的 API Key
+    if (!apiUsage) {
+      apiUsage = await getNewApiKey();
+    }
+    return apiUsage;
+  } catch (e) {
+    console.error(e);
+    return undefined;
+  }
+}
+
+async function getTodayApiKey(requiredQuota: number) {
+  const client = await pool.connect();
+  try {
+    const result = await client.query(
+      `SELECT au.id, ak.api_key, au.quota_used, au.quota_limit
+         FROM google_api_usage au
+         JOIN google_api_keys ak ON au.google_api_key_id = ak.id
+         WHERE au.usage_date = CURRENT_DATE
+         AND ak.is_active = TRUE
+         AND (au.quota_limit - au.quota_used) > $1
+         ORDER BY au.last_used_at ASC
+         LIMIT 1`,
+      [requiredQuota]
+    );
+    return result.rows.length > 0 ? result.rows[0] : null;
+  } catch (error) {
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function getNewApiKey() {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // 选择一个新的 API Key
+    const result = await client.query(
+      `SELECT id, api_key FROM google_api_keys
+         WHERE is_active = TRUE
+         AND id NOT IN (
+           SELECT google_api_key_id FROM google_api_usage WHERE usage_date = CURRENT_DATE
+         )
+         ORDER BY created_at ASC
+         LIMIT 1`
+    );
+
+    if (result.rows.length === 0) {
+      throw new Error("No active API keys available.");
+    }
+
+    const apiKeyData = result.rows[0];
+
+    // 创建 `google_api_usage` 记录
+    await client.query(
+      `INSERT INTO google_api_usage (google_api_key_id, usage_date, quota_limit, quota_used, last_used_at)
+         VALUES ($1, CURRENT_DATE, 10000, 0, NOW())`,
+      [apiKeyData.id]
+    );
+
+    await client.query("COMMIT");
+
+    return {
+      id: apiKeyData.id,
+      api_key: apiKeyData.api_key,
+      quota_used: 0,
+      quota_limit: 10000,
+    };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+// 更新 API Key 使用情况
+export async function updateQuotaUsage(usageId: string, usedQuota: number) {
+  const client = await pool.connect();
+  try {
+    await client.query(
+      `UPDATE google_api_usage
+         SET quota_used = quota_used + $1,
+             last_used_at = NOW(),
+             updated_at = NOW()
+         WHERE id = $2`,
+      [usedQuota, usageId]
+    );
+  } finally {
+    client.release();
+  }
+}

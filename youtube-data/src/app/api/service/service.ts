@@ -2,11 +2,13 @@ import { channels, search, videos } from "../ytclient/client";
 import {
   getAllChannelIds,
   getAllKeywords,
+  getAvailableApiKey,
   insertChannel,
   insertChannelStatistics,
   insertKeywordsVideos,
   insertVideo,
   insertVideoStatistics,
+  updateQuotaUsage,
 } from "../dao/dao";
 
 export async function fetchDataByChannel() {
@@ -18,13 +20,32 @@ export async function fetchDataByChannel() {
     return;
   }
 
-  const channelIds = allChannelId.join(",");
+  // Split allChannelId into chunks of up to 50 IDs each
+  const channelChunks = chunkArray(allChannelId, 50);
 
-  // get all channel details from YT data API
-  const channelDetails = await channels(channelIds);
+  // TODO MEMO: cost= 30 (15 channels)
+  const totalCostForChannels = channelChunks.reduce(
+    (sum, chunk) => sum + 2 * chunk.length,
+    0
+  );
+  console.log(`QUOTA: ${totalCostForChannels} QUOTA will be used`);
+  const apiUsageForChannels = await getAvailableApiKey(totalCostForChannels);
+
+  // [DB] update Quota Usage
+  apiUsageForChannels?.id &&
+    (await updateQuotaUsage(apiUsageForChannels.id, totalCostForChannels));
+
+  // [API] Fetch all channel details from YT data API in parallel
+  const allChannelDetails = (
+    await Promise.all(
+      channelChunks.map((chunk) => {
+        return channels(chunk.join(","), apiUsageForChannels?.api_key);
+      })
+    )
+  ).flat();
 
   // Make channelBasicInfo list from response
-  const channelBasicInfo = channelDetails?.map((item) => {
+  const channelBasicInfo = allChannelDetails?.map((item) => {
     return {
       channel_id: item.id,
       channel_name: item.snippet.title,
@@ -33,11 +54,11 @@ export async function fetchDataByChannel() {
       channel_thumbnail_url: item.snippet.thumbnails.default.url,
     };
   });
-  // insert channelBasicInfo list to yt_channel table
+  // [DB] insert channelBasicInfo list to yt_channel table
   await insertChannel(channelBasicInfo);
 
   // Make channelStatistics list from response
-  const channelStatistics = channelDetails?.map((item) => {
+  const channelStatistics = allChannelDetails?.map((item) => {
     return {
       channel_id: item.id,
       subscriber_count: item.statistics.subscriberCount ?? 0,
@@ -45,25 +66,48 @@ export async function fetchDataByChannel() {
       video_count: item.statistics.videoCount ?? 0,
     };
   });
-  // insert channelStatistics list to yt_channel_statistics table
+  // [DB] insert channelStatistics list to yt_channel_statistics table
   await insertChannelStatistics(channelStatistics);
 
+  // TODO MEMO: Assume 500 videos per channel and 15 channels
+  // TODO MEMO: cost= 15 channels * (10 times of searches * 100 cost + 10 times of fetch videoDetails * 150 cost) = 37500
   allChannelId.forEach((channelId) => {
     (async () => {
       console.log("channelId: " + channelId);
 
       let nextPageToken: string | undefined = undefined;
       do {
-        // search channel information and videos by channelId
+        // TODO MEMO: cost= 100
+        const totalCostForSearch = 100;
+
+        console.log(`QUOTA: ${totalCostForSearch} QUOTA will be used`);
+        // [DB]
+        const apiUsageForSearch = await getAvailableApiKey(totalCostForSearch);
+        // [DB]
+        apiUsageForSearch?.id &&
+          (await updateQuotaUsage(apiUsageForSearch.id, totalCostForSearch));
+        // [API] search channel information and videos by channelId
         const { searchItems, nextPageToken: newToken } = await search(
           nextPageToken,
           channelId,
-          undefined
+          undefined,
+          apiUsageForSearch?.api_key
         );
         const videoIds = searchItems
           .map((item: any) => item.id.videoId)
           .join(",");
-        await fetchAndSaveVideoDetails(videoIds);
+
+        // TODO MEMO: cost= 150 (3*50)
+        const totalCostForVideos = 3 * searchItems.length;
+
+        console.log(`QUOTA: ${totalCostForVideos} QUOTA will be used`);
+        // [DB]
+        const apiUsageForVideos = await getAvailableApiKey(totalCostForVideos);
+        // [DB]
+        apiUsageForVideos?.id &&
+          (await updateQuotaUsage(apiUsageForVideos.id, totalCostForVideos));
+        // [API]
+        await fetchAndSaveVideoDetails(videoIds, apiUsageForVideos?.api_key);
         nextPageToken = newToken;
       } while (nextPageToken !== undefined);
     })();
@@ -79,15 +123,28 @@ export async function fetchDataByKeyword() {
     return;
   }
 
+  // TODO MEMO: Top 500 videos per Keyword and 30 Keywords
+  // TODO MEMO: cost= 30 channels * (10 times of searches * 100 cost + 10 times of fetch videoDetails * 150 cost) = 75000
   allKeywords.forEach((item) => {
     (async () => {
       let nextPageToken: string | undefined = undefined;
       let fetchCount = 0;
       do {
+        // TODO MEMO: cost= 100
+        const totalCostForSearch = 100;
+
+        console.log(`QUOTA: ${totalCostForSearch} QUOTA will be used`);
+        // [DB]
+        const apiUsageForSearch = await getAvailableApiKey(totalCostForSearch);
+        // [DB]
+        apiUsageForSearch?.id &&
+          (await updateQuotaUsage(apiUsageForSearch.id, totalCostForSearch));
+        // [API]
         const { searchItems, nextPageToken: newToken } = await search(
           nextPageToken,
           undefined,
-          item.keyword
+          item.keyword,
+          apiUsageForSearch?.api_key
         );
         const videoIds = searchItems
           .map((item: any) => item.id.videoId)
@@ -100,7 +157,17 @@ export async function fetchDataByKeyword() {
         });
         await insertKeywordsVideos(keywordsVideos);
 
-        await fetchAndSaveVideoDetails(videoIds);
+        // TODO MEMO: cost= 150 (3*50)
+        const totalCostForVideos = 3 * searchItems.length;
+
+        console.log(`QUOTA: ${totalCostForVideos} QUOTA will be used`);
+        // [DB]
+        const apiUsageForVideos = await getAvailableApiKey(totalCostForVideos);
+        // [DB]
+        apiUsageForVideos?.id &&
+          (await updateQuotaUsage(apiUsageForVideos.id, totalCostForVideos));
+        // [API]
+        await fetchAndSaveVideoDetails(videoIds, apiUsageForVideos?.api_key);
         fetchCount += searchItems.length;
         nextPageToken = newToken;
       } while (nextPageToken !== undefined && fetchCount < 500);
@@ -108,12 +175,12 @@ export async function fetchDataByKeyword() {
   });
 }
 
-async function fetchAndSaveVideoDetails(videoIds) {
+async function fetchAndSaveVideoDetails(videoIds, apiKey: string | undefined) {
   if (!videoIds) {
     return;
   }
   // get video details from YT data API
-  const channelVideoDetails = await videos(videoIds);
+  const channelVideoDetails = await videos(videoIds, apiKey);
 
   // Make videoBasicInfo list from response
   const videoBasicInfo = channelVideoDetails.map((item) => {
@@ -143,4 +210,11 @@ async function fetchAndSaveVideoDetails(videoIds) {
   });
   // insert videoStatistics list to yt_video_statistics table
   await insertVideoStatistics(videoStatistics);
+}
+
+// Helper function: Split an array into multiple subarrays of the given size
+function chunkArray<T>(array: T[], size: number): T[][] {
+  return Array.from({ length: Math.ceil(array.length / size) }, (_, i) =>
+    array.slice(i * size, i * size + size)
+  );
 }
